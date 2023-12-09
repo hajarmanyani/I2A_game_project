@@ -4,66 +4,54 @@
   let v1 = p5.Vector.sub(a, pos); soit v1 = pos -> a
   let v2 = p5.Vector.sub(b, pos); soit v2 = pos -> b
   */
-function findProjection(pos, a, b) {
-  let v1 = p5.Vector.sub(a, pos);
-  let v2 = p5.Vector.sub(b, pos);
-  v2.normalize();
-  let sp = v1.dot(v2);
-  v2.mult(sp);
-  v2.add(pos);
-  return v2;
-}
+  function findProjection(pos, a, b) {
+    let v1 = p5.Vector.sub(a, pos);
+    let v2 = p5.Vector.sub(b, pos);
+    v2.normalize();
+    let sp = v1.dot(v2);
+    v2.mult(sp);
+    v2.add(pos);
+    return v2;
+  }
 
 class Vehicle {
   static debug = false;
 
   constructor(x, y, imageVaisseau) {
     this.imageVaisseau = imageVaisseau;
-    // position du véhicule
     this.pos = createVector(x, y);
-    // vitesse du véhicule
     this.vel = createVector(0, 0);
-    // accélération du véhicule
     this.acc = createVector(0, 0);
-    // vitesse maximale du véhicule
     this.maxSpeed = 4;
-    // force maximale appliquée au véhicule
     this.maxForce = 0.7;
     this.color = "white";
-    // à peu près en secondes
     this.dureeDeVie = 5;
-
     this.r_pourDessin = 24;
-    // rayon du véhicule pour l'évitement
     this.r = this.r_pourDessin * 3;
-
-    // Pour évitement d'obstacle
     this.largeurZoneEvitementDevantVaisseau = this.r / 2;
     this.distanceAhead = 30;
-
-    // chemin derrière vaisseaux
     this.path = [];
     this.pathMaxLength = 30;
   }
 
+
   // on fait une méthode applyBehaviors qui applique les comportements
   // seek et avoid
-  applyBehaviors(target, obstacles, vehicules) {
-
+  applyBehaviors(target, obstacles, vehicles) {
     let seekForce = this.arrive(target);
     let avoidForceObstacles = this.avoid(obstacles);
-    //let avoidForceVehicules = this.avoidVehicules(vehicules);
-    let separationForce = this.separate(vehicules);
+    let separationForce = this.separate(vehicles);
 
     seekForce.mult(0.2);
     avoidForceObstacles.mult(0.9);
-    //avoidForceVehicules.mult(0);
     separationForce.mult(0.9);
 
     this.applyForce(seekForce);
     this.applyForce(avoidForceObstacles);
-    //this.applyForce(avoidForceVehicules);
     this.applyForce(separationForce);
+
+    // Mettre à jour le chemin uniquement pour le leader
+    this.ajoutePosAuPath();
   }
 
   // Méthode d'évitement d'obstacle, implémente le comportement avoid
@@ -71,11 +59,11 @@ class Vehicle {
   avoid(obstacles) {
     // calcul d'un vecteur ahead devant le véhicule
     // il regarde par exemple 50 frames devant lui
+    
     let ahead = this.vel.copy();
     ahead.mult(this.distanceAhead);
     // on l'ajoute à la position du véhicule
     let pointAuBoutDeAhead = p5.Vector.add(this.pos, ahead);
-
     if (Vehicle.debug) {
       // on le dessine avec ma méthode this.drawVector(pos vecteur, color)
       this.drawVector(this.pos, ahead, color(255, 0, 0));
@@ -433,16 +421,20 @@ class Vehicle {
     // on ajoute la vitesse à la position. La vitesse est un incrément de position, 
     // (la vitesse est la dérivée de la position)
     this.pos.add(this.vel);
-
+  
     // on remet l'accélération à zéro
     this.acc.set(0, 0);
-
+  
     // mise à jour du path (la trainée derrière)
     this.ajoutePosAuPath();
-
+  
     // durée de vie
     this.dureeDeVie -= 0.01;
+  
+    // gestion des bords
+    this.edges();
   }
+  
 
   ajoutePosAuPath() {
     // on rajoute la position courante dans le tableau
@@ -547,7 +539,27 @@ class Vehicle {
     } else if (this.pos.y < -this.r) {
       this.pos.y = height + this.r;
     }
-  }
+  }  
+  
+  drawVector(pos, v, color) {
+    push();
+    // Dessin du vecteur vitesse
+    // Il part du centre du véhicule et va dans la direction du vecteur vitesse
+    strokeWeight(3);
+    stroke(color);
+    line(pos.x, pos.y, pos.x + v.x, pos.y + v.y);
+    // dessine une petite flèche au bout du vecteur vitesse
+    let arrowSize = 5;
+    translate(pos.x + v.x, pos.y + v.y);
+    rotate(v.heading());
+    translate(-arrowSize / 2, 0);
+    triangle(0, arrowSize / 2, 0, -arrowSize / 2, arrowSize, 0);
+    pop();
+}
+follow(leader) {
+  let followForce = this.pursue(leader);
+  this.applyForce(followForce);
+}
 }
 
 class Target extends Vehicle {
@@ -568,4 +580,6 @@ class Target extends Vehicle {
     pop();
     pop();
   }
+
+  
 }
